@@ -1,0 +1,31 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-event-forwarder
+  namespace: hermes-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hermes-event-forwarder
+  template:
+    metadata:
+      labels:
+        app: hermes-event-forwarder
+    spec:
+      serviceAccountName: kube-event-forwarder
+      containers:
+        - name: forwarder
+          image: hermes-event-forwarder:1.0.0
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: hermes-webhook
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi

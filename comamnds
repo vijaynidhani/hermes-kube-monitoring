@@ -1,0 +1,36 @@
+   Running with following environment
+   1. Hermes in WSL environment.
+   2. minikube in docker environment.
+   3. Image needed to be loaded in the minikube when building in wSL
+            minikube image load <image-name>:<tag>
+   4. It uses WSL IP when communicating with Hermes. So, make sure to use WSL IP in the HERMES_URL secret.
+
+   
+
+    -- Sample request 
+
+    BODY='{"event_type":"kube_event","type":"Warning","reason":"BackOff","message":"Container restart failure","namespace":"default","source":"kubernetes"}'; TS=$(date +%s); SIG=$(printf '%s' "${TS}.${BODY}" | openssl dgst -sha256 -hmac 'ysq75J7voH2x7V2_xnpe9yEMhfXeDWyumePgXfflvCM' | awk '{print $NF}'); curl -i -X POST 'http://localhost:8644/webhooks/kube-events' -H 'Content-Type: application/json' -H "X-Webhook-Timestamp: ${TS}" -H "X-Webhook-Signature-V2: ${SIG}" -d "$BODY"
+
+    docker build -t hermes-event-forwarder:latest .
+
+    kubectl apply -f  hermes-kube-events.yaml
+
+    kubectl -n hermes-monitoring create secret generic hermes-webhook \
+    --from-literal=HERMES_URL='http://172.31.126.102:8644/webhooks/k-event-stream' \
+    --from-literal=HERMES_SECRET='ouBGt9HCPSLdEIJVextEiOyq4Iprz08d5oJRgCGBvBo' \
+    --dry-run=client -o yaml | kubectl apply -f -
+
+
+    kubectl apply -f hermes-event-forwarder-deployment.yaml
+
+    kubectl -n hermes-monitoring rollout status \
+    deployment/hermes-event-forwarder
+
+    kubectl -n hermes-monitoring logs \
+    deployment/hermes-event-forwarder -f
+
+
+     kubectl -n hermes-monitoring rollout restart deployment/hermes-event-forwarder
+
+     kubectl -n hermes-monitoring logs   deployment/hermes-event-forwarder --tail=50 -f
+
