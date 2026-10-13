@@ -9,15 +9,16 @@
 
     -- Sample request 
 
-    BODY='{"event_type":"kube_event","type":"Warning","reason":"BackOff","message":"Container restart failure","namespace":"default","source":"kubernetes"}'; TS=$(date +%s); SIG=$(printf '%s' "${TS}.${BODY}" | openssl dgst -sha256 -hmac 'ysq75J7voH2x7V2_xnpe9yEMhfXeDWyumePgXfflvCM' | awk '{print $NF}'); curl -i -X POST 'http://localhost:8644/webhooks/kube-events' -H 'Content-Type: application/json' -H "X-Webhook-Timestamp: ${TS}" -H "X-Webhook-Signature-V2: ${SIG}" -d "$BODY"
+    : "${HERMES_SECRET:?Set HERMES_SECRET to the webhook signing secret first}"
+    BODY='{"event_type":"kube_event","type":"Warning","reason":"BackOff","message":"Container restart failure","namespace":"default","source":"kubernetes"}'; TS=$(date +%s); SIG=$(printf '%s' "${TS}.${BODY}" | openssl dgst -sha256 -hmac "$HERMES_SECRET" | awk '{print $NF}'); curl -i -X POST 'http://localhost:8644/webhooks/kube-events' -H 'Content-Type: application/json' -H "X-Webhook-Timestamp: ${TS}" -H "X-Webhook-Signature-V2: ${SIG}" -d "$BODY"
 
     docker build -t hermes-event-forwarder:latest .
 
     kubectl apply -f  hermes-kube-events.yaml
 
     kubectl -n hermes-monitoring create secret generic hermes-webhook \
-    --from-literal=HERMES_URL='http://172.31.126.102:8644/webhooks/k-event-stream' \
-    --from-literal=HERMES_SECRET='ouBGt9HCPSLdEIJVextEiOyq4Iprz08d5oJRgCGBvBo' \
+    --from-literal=HERMES_URL='http://<WSL_IP>:8644/webhooks/k-event-stream' \
+    --from-literal=HERMES_SECRET="${HERMES_SECRET:?Set HERMES_SECRET first}" \
     --dry-run=client -o yaml | kubectl apply -f -
 
 
@@ -33,4 +34,3 @@
      kubectl -n hermes-monitoring rollout restart deployment/hermes-event-forwarder
 
      kubectl -n hermes-monitoring logs   deployment/hermes-event-forwarder --tail=50 -f
-
